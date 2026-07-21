@@ -1,0 +1,101 @@
+name: Cazador Always Free Oracle
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [rearrancar_caza]
+
+# EVITA QUE SE ACUMULEN EJECUCIONES: Si se dispara uno nuevo, cancela automáticamente el anterior
+concurrency:
+  group: caceria-oracle
+  cancel-in-progress: true
+
+jobs:
+  cazar:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Configurar CLI de Oracle
+      run: |
+        mkdir -p ~/.oci
+        echo "${{ secrets.OCI_CONFIG }}" > ~/.oci/config
+        echo "${{ secrets.OCI_KEY_PEM }}" > ~/.oci/config_key.pem
+        sed -i 's|key_file=.*|key_file=/home/runner/.oci/config_key.pem|g' ~/.oci/config
+        chmod 600 ~/.oci/config ~/.oci/config_key.pem
+        bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)" -- --accept-all-defaults
+        echo "/home/runner/bin" >> $GITHUB_PATH
+
+    - name: Correr Cacería por 20 minutos
+      run: |
+        # Variables de Oracle
+        INSTANCE_NAME="instance-20260709-2256"
+        SHAPE="VM.Standard.A1.Flex"
+        COMPARTMENT_ID="${{ secrets.COMPARTMENT_ID }}"
+        
+        export PATH=$PATH:/home/runner/bin
+        export SUPPRESS_LABEL_WARNING=True
+        
+        # 1. Creamos el archivo de la clave pública SSH
+        echo "${{ secrets.SSH_PUBLIC_KEY }}" > ~/clave_publica.pub
+        
+        echo "Buscando la última imagen válida de Ubuntu ARM en São Paulo..."
+        IMAGE_ID=$(oci compute image list --compartment-id "$COMPARTMENT_ID" --operating-system "Canonical Ubuntu" --operating-system-version "22.04" --shape "$SHAPE" --query "data[0].id" --raw-output)
+        echo "Imagen encontrada: $IMAGE_ID"
+        
+        echo "Buscando una Subnet válida automáticamente en tu Tenancy..."
+        SUBNET_ID=$(oci network subnet list --compartment-id "$COMPARTMENT_ID" --query "data[0].id" --raw-output)
+        echo "Subnet encontrada de forma dinámica: $SUBNET_ID"
+        
+        if [ -z "$SUBNET_ID" ] || [ "$SUBNET_ID" == "null" ]; then
+          echo "❌ Error crítico: No se encontró ninguna Subnet en tu cuenta. Asegurate de tener una VCN configurada."
+          exit 1
+        fi
+        
+        echo "Iniciando cacería en GitHub Actions..."
+        START_TIME=$(date +%s)
+        EXITO="false"
+        AD_NAME="sa-saopaulo-1-AD-1"
+        
+        while [ $(($(date +%s) - START_TIME)) -lt 1200 ]; do
+          echo "Intentando crear instancia... $(date)"
+          
+          # Comando con JSON escapado correctamente según la API de OCI
+          SALIDA=$(oci compute instance launch \
+            --compartment-id "${COMPARTMENT_ID}" \
+            --availability-domain "${AD_NAME}" \
+            --display-name "${INSTANCE_NAME}" \
+            --shape "${SHAPE}" \
+            --shape-config "{\"ocpus\": 2, \"memoryInGBs\": 12}" \
+            --image-id "${IMAGE_ID}" \
+            --boot-volume-size-in-gbs 100 \
+            --subnet-id "${SUBNET_ID}" \
+            --assign-public-ip true \
+            --ssh-authorized-keys-file ~/clave_publica.pub 2>&1) || true
+          
+          echo "$SALIDA"
+          
+          if echo "$SALIDA" | grep -q "lifecycle-state"; then
+            echo "¡ÉXITO REAL! La máquina ARM ha sido creada de forma satisfactoria."
+            EXITO="true"
+            break
+          elif echo "$SALIDA" | grep -qE "Out of capacity|LimitExceeded|TooManyRequests|InternalServerError|NotAuthorizedOrNotFound|CannotParseRequest"; then
+            echo "Sin stock o reintento de API en São Paulo. Reintentando en 60 segundos..."
+          else
+            echo "❌ Error crítico real de Oracle detectado arriba. Frenando bucle."
+            exit 1
+          fi
+          
+          sleep 60
+        done
+        
+        echo "EXITO=$EXITO" >> $GITHUB_ENV
+
+    - name: Encadenar siguiente ejecución (Efecto Dominó)
+      if: env.EXITO != 'true' && always()
+      run: |
+        echo "Lanzando el siguiente eslabón de la cacería..."
+        curl -X POST \
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Authorization: token ${{ secrets.GH_PAT }}" \
+          https://api.github.com/repos/${{ github.repository }}/dispatches \
+          -d '{"event_type": "rearrancar_caza"}'
