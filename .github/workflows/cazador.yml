@@ -60,18 +60,18 @@ jobs:
           echo "Intentando crear instancia... $(date)"
           
           # Comando con JSON escapado correctamente según la API de OCI
-          SALIDA=$(oci compute instance launch \
-            --compartment-id "${COMPARTMENT_ID}" \
-            --availability-domain "${AD_NAME}" \
-            --display-name "${INSTANCE_NAME}" \
-            --shape "${SHAPE}" \
-            --shape-config "{\"ocpus\": 2, \"memoryInGBs\": 12}" \
-            --image-id "${IMAGE_ID}" \
-            --boot-volume-size-in-gbs 100 \
-            --subnet-id "${SUBNET_ID}" \
-            --assign-public-ip true \
-            --ssh-authorized-keys-file ~/clave_publica.pub 2>&1) || true
-          
+        SALIDA=$(oci compute instance launch \
+          --compartment-id "${COMPARTMENT_ID}" \
+          --availability-domain "${AD_NAME}" \
+          --display-name "${INSTANCE_NAME}" \
+          --shape "${SHAPE}" \
+          --shape-config '{"ocpus": 2, "memory_in_gbs": 12}' \
+          --image-id "${IMAGE_ID}" \
+          --boot-volume-size-in-gbs 100 \
+          --subnet-id "${SUBNET_ID}" \
+          --assign-public-ip true \
+          --ssh-authorized-keys-file ~/clave_publica.pub 2>&1) || true
+                  
           echo "$SALIDA"
           
           if echo "$SALIDA" | grep -q "lifecycle-state"; then
