@@ -61,8 +61,18 @@ jobs:
         echo "Iniciando cacería en GitHub Actions..."
         START_TIME=$(date +%s)
         EXITO="false"
-        AD_NAME="sa-saopaulo-1-AD-1"
         
+        echo "Buscando el nombre real de la Availability Domain..."
+        AD_NAME=$(oci iam availability-domain list \
+          --compartment-id "${COMPARTMENT_ID}" \
+          --query "data[0].name" --raw-output)
+        
+        if [ -z "$AD_NAME" ] || [ "$AD_NAME" == "null" ]; then
+          echo "❌ Error crítico: No se pudo obtener la Availability Domain. Revisá permisos/compartment."
+          exit 1
+        fi
+        echo "AD encontrada: $AD_NAME"
+
         while [ $(($(date +%s) - START_TIME)) -lt 1200 ]; do
           echo "Intentando crear instancia... $(date)"
 
