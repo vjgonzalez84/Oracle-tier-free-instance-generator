@@ -59,10 +59,8 @@ jobs:
         while [ $(($(date +%s) - START_TIME)) -lt 1200 ]; do
           echo "Intentando crear instancia... $(date)"
 
-          LOG=oci-debug.log
-
           # Comando con JSON escapado correctamente según la API de OCI
-        SALIDA=$(oci --debug compute instance launch \
+        oci --debug compute instance launch \
           --compartment-id "${COMPARTMENT_ID}" \
           --availability-domain "${AD_NAME}" \
           --display-name "${INSTANCE_NAME}" \
@@ -72,8 +70,8 @@ jobs:
           --boot-volume-size-in-gbs 100 \
           --subnet-id "${SUBNET_ID}" \
           --assign-public-ip true \
-          --ssh-authorized-keys-file ~/clave_publica.pub 2>&1 | tee "$LOG" | grep -E "Response status|message|code|opc-request-id") || true
-          
+          --ssh-authorized-keys-file ~/clave_publica.pub || true
+  
           sleep 60
         done
         
@@ -88,10 +86,3 @@ jobs:
           -H "Authorization: token ${{ secrets.GH_PAT }}" \
           https://api.github.com/repos/${{ github.repository }}/dispatches \
           -d '{"event_type": "rearrancar_caza"}'
-
-    - name: Upload OCI log
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: oci-debug-log
-        path: oci.log
