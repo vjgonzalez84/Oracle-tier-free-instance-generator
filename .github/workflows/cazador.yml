@@ -15,6 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+    - name: Verificar configuración OCI
+      run: |
+        export PATH=$PATH:/home/runner/bin
+        oci --version
+        cat ~/.oci/config | sed 's/user=.*/user=***/' | sed 's/fingerprint=.*/fingerprint=***/' | sed 's/tenancy=.*/tenancy=***/'
+        oci iam region list | head
+
     - name: Configurar CLI de Oracle
       run: |
         mkdir -p ~/.oci
