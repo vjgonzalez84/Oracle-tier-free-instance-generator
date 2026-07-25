@@ -15,13 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-    - name: Verificar configuración OCI
-      run: |
-        export PATH=$PATH:/home/runner/bin
-        oci --version
-        cat ~/.oci/config | sed 's/user=.*/user=***/' | sed 's/fingerprint=.*/fingerprint=***/' | sed 's/tenancy=.*/tenancy=***/'
-        oci iam region list | head
-
     - name: Configurar CLI de Oracle
       run: |
         mkdir -p ~/.oci
@@ -31,6 +24,13 @@ jobs:
         chmod 600 ~/.oci/config ~/.oci/config_key.pem
         bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)" -- --accept-all-defaults
         echo "/home/runner/bin" >> $GITHUB_PATH
+
+    - name: Verificar configuración OCI
+      run: |
+        export PATH=$PATH:/home/runner/bin
+        oci --version
+        cat ~/.oci/config | sed 's/user=.*/user=***/' | sed 's/fingerprint=.*/fingerprint=***/' | sed 's/tenancy=.*/tenancy=***/'
+        oci iam region list | head
 
     - name: Correr Cacería por 20 minutos
       run: |
