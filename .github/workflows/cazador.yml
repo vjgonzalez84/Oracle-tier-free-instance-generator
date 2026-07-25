@@ -60,7 +60,7 @@ jobs:
           echo "Intentando crear instancia... $(date)"
           
           # Comando con JSON escapado correctamente según la API de OCI
-        SALIDA=$(oci compute instance launch \
+        SALIDA=$(oci --debug compute instance launch \
           --compartment-id "${COMPARTMENT_ID}" \
           --availability-domain "${AD_NAME}" \
           --display-name "${INSTANCE_NAME}" \
@@ -70,7 +70,7 @@ jobs:
           --boot-volume-size-in-gbs 100 \
           --subnet-id "${SUBNET_ID}" \
           --assign-public-ip true \
-          --ssh-authorized-keys-file ~/clave_publica.pub 2>&1) || true
+          --ssh-authorized-keys-file ~/clave_publica.pub 2>&1 | grep -E "Response status|message|code|opc-request-id") || true
                   
           echo "$SALIDA"
           
