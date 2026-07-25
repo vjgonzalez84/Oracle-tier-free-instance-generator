@@ -13,7 +13,7 @@ concurrency:
 jobs:
   cazar:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 22
     steps:
     - name: Configurar CLI de Oracle
       run: |
@@ -73,22 +73,25 @@ jobs:
         fi
         echo "AD encontrada: $AD_NAME"
 
-        while [ $(($(date +%s) - START_TIME)) -lt 1200 ]; do
+        while [ $(($(date +%s) - START_TIME)) -lt 1100 ]; do
           echo "Intentando crear instancia... $(date)"
-
-          # Comando con JSON escapado correctamente según la API de OCI
-        oci --debug compute instance launch \
-          --compartment-id "${COMPARTMENT_ID}" \
-          --availability-domain "${AD_NAME}" \
-          --display-name "${INSTANCE_NAME}" \
-          --shape "${SHAPE}" \
-          --shape-config '{"ocpus": 2, "memory_in_gbs": 12}' \
-          --image-id "${IMAGE_ID}" \
-          --boot-volume-size-in-gbs 100 \
-          --subnet-id "${SUBNET_ID}" \
-          --assign-public-ip true \
-          --ssh-authorized-keys-file ~/clave_publica.pub || true
-  
+        
+          if oci compute instance launch \
+            --compartment-id "${COMPARTMENT_ID}" \
+            --availability-domain "${AD_NAME}" \
+            --display-name "${INSTANCE_NAME}" \
+            --shape "${SHAPE}" \
+            --shape-config '{"ocpus": 2, "memory_in_gbs": 12}' \
+            --image-id "${IMAGE_ID}" \
+            --boot-volume-size-in-gbs 100 \
+            --subnet-id "${SUBNET_ID}" \
+            --assign-public-ip true \
+            --ssh-authorized-keys-file ~/clave_publica.pub; then
+              echo "✅ ¡Instancia creada con éxito!"
+              EXITO="true"
+              break
+          fi
+        
           sleep 60
         done
         
