@@ -58,7 +58,9 @@ jobs:
         
         while [ $(($(date +%s) - START_TIME)) -lt 1200 ]; do
           echo "Intentando crear instancia... $(date)"
-          
+
+          LOG=oci-debug.log
+
           # Comando con JSON escapado correctamente según la API de OCI
         SALIDA=$(oci --debug compute instance launch \
           --compartment-id "${COMPARTMENT_ID}" \
@@ -70,20 +72,7 @@ jobs:
           --boot-volume-size-in-gbs 100 \
           --subnet-id "${SUBNET_ID}" \
           --assign-public-ip true \
-          --ssh-authorized-keys-file ~/clave_publica.pub 2>&1 | grep -E "Response status|message|code|opc-request-id") || true
-                  
-          echo "$SALIDA"
-          
-          if echo "$SALIDA" | grep -q "lifecycle-state"; then
-            echo "¡ÉXITO REAL! La máquina ARM ha sido creada de forma satisfactoria."
-            EXITO="true"
-            break
-          elif echo "$SALIDA" | grep -qE "Out of capacity|LimitExceeded|TooManyRequests|InternalServerError|NotAuthorizedOrNotFound|CannotParseRequest"; then
-            echo "Sin stock o reintento de API en São Paulo. Reintentando en 60 segundos..."
-          else
-            echo "❌ Error crítico real de Oracle detectado arriba. Frenando bucle."
-            exit 1
-          fi
+          --ssh-authorized-keys-file ~/clave_publica.pub 2>&1 | tee "$LOG" | grep -E "Response status|message|code|opc-request-id") || true
           
           sleep 60
         done
@@ -99,3 +88,10 @@ jobs:
           -H "Authorization: token ${{ secrets.GH_PAT }}" \
           https://api.github.com/repos/${{ github.repository }}/dispatches \
           -d '{"event_type": "rearrancar_caza"}'
+
+    - name: Upload OCI log
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: oci-debug-log
+        path: oci.log
